@@ -1,0 +1,30 @@
+data:
+  dataset_name: "cdc22"
+  data_dir: "/mnt/datalv/dionchr/clinical_ds/CDC/processed/heart_with_nans_final_new.csv"
+  metadata_dir: "/mnt/datalv/dionchr/clinical_ds/CDC/processed/heart_with_nans_final_new_metadata.json"
+  num_labels: 1
+  target_label: "HeartDiseaseorAttack"
+  encoding: true
+
+train:
+  train_perc: 0.9
+  train_batch_size: 1024
+  val_batch_size: 2048
+  seed: 1
+
+sampler: "custom"
+
+optim:
+  epochs: 2
+  lr: 0.0002
+  lr_scheduler: "rop"
+  optimizer: "rmsprop"
+  loss: "focal"
+  focal:
+    alpha: 0.9
+  bce:
+    use_pos_weight: false
+    pos_weight: 9.0
+
+model:
+  hidden_size: 64

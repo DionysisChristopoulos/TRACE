@@ -1,0 +1,49 @@
+data:
+  dataset_name: "cdc14_r"
+  data_dir: "/mnt/datalv/dionchr/clinical_ds/CDC/processed/type2_diabetes_brfss2014_reproduction.csv"
+  metadata_dir: "/mnt/datalv/dionchr/clinical_ds/CDC/processed/type2_diabetes_brfss2014_reproduction_metadata.json"
+  num_labels: 1
+  target_label: "DIABETE3"
+  encoding: false
+
+train:
+  train_perc: 0.6
+  train_batch_size: 1024
+  val_batch_size: 2048
+  seed: 3
+
+sampler: "custom"
+
+optim:
+  epochs: 100
+  lr: 0.0002
+  lr_scheduler: "rop"
+  optimizer: "adam"
+  loss: "focal"
+  focal:
+    alpha: 0.6
+  bce:
+    use_pos_weight: false
+    pos_weight: 9.0
+
+model:
+  hidden_size: 128
+  tran_layers: 1
+  heads: 2
+  mlp_ratio: 4
+  num_mode: "mlp"
+  dropout: 0.0
+  cls_token: false
+  use_num_norm: false
+  use_cat_norm: false
+  checkbox_mode: "sum"
+
+oversampling: false
+oversampling_mode: "smote"
+smote:
+  oversampling_strategy: "auto"
+  k_neighbors: 5
+  undersampling: false
+  undersampling_strategy: 0.5
+ctgan:
+  epochs: 10
