@@ -3,10 +3,7 @@ import datetime, time
 import os, random, json
 import math
 import numpy as np
-import pandas as pd
 from pathlib import Path
-from sklearn.model_selection import StratifiedKFold, train_test_split
-
 import torch
 from torch import nn
 from torch.utils.data import TensorDataset, ConcatDataset, DataLoader, random_split
@@ -18,6 +15,7 @@ from utils.losses import FocalLoss
 from utils import misc
 from utils.sampler import CustomSampler
 from utils.config import setup
+from fvcore.nn import FlopCountAnalysis, flop_count_table
         
 def get_args_parser():
     parser = argparse.ArgumentParser('Attention based melanoma/osc risk estimation on clinical data', add_help=True)
@@ -25,7 +23,7 @@ def get_args_parser():
     parser.add_argument('--output_dir', default='./results/experiment_name', help='path to save the output model')
 
     parser.add_argument('--eval', action='store_true', help='Perform evaluation only')
-    parser.add_argument('--checkpoint', default='/mnt/datalv/dionchr/itobos_results/attentive_cdc22_with_missing_imbalanced_val_focal_0_8_size128_tranlayers_2/ckpt_best.pth', help='Load model from checkpoint')
+    parser.add_argument('--checkpoint', default='/path/to/model/ckpt_best.pth', help='Load model from checkpoint')
     return parser
 
 def set_seed(seed):
@@ -48,15 +46,16 @@ def main(args):
     print(f"\nTrain dataset: {len(train_dataset)} samples")
     print(f"Test dataset: {len(test_dataset)} samples")
 
-    train_positives = (train_dataset.tensors[1] == 1).sum().item()
-    train_negatives = (train_dataset.tensors[1] == 0).sum().item()
-    test_positives = (test_dataset.tensors[1] == 1).sum().item()
-    test_negatives = (test_dataset.tensors[1] == 0).sum().item()
+    if args.data.num_labels==1:
+        train_positives = (train_dataset.tensors[1] == 1).sum().item()
+        train_negatives = (train_dataset.tensors[1] == 0).sum().item()
+        test_positives = (test_dataset.tensors[1] == 1).sum().item()
+        test_negatives = (test_dataset.tensors[1] == 0).sum().item()
 
-    print(f"\nTrain positives: {train_positives} samples")
-    print(f"Train negatives: {train_negatives} samples")
-    print(f"\nTest positives: {test_positives} samples")
-    print(f"Test negatives: {test_negatives} samples")
+        print(f"\nTrain positives: {train_positives} samples")
+        print(f"Train negatives: {train_negatives} samples")
+        print(f"\nTest positives: {test_positives} samples")
+        print(f"Test negatives: {test_negatives} samples")
     
     if args.sampler == 'custom':
         positive_ratio = train_positives / len(train_dataset)
@@ -93,6 +92,14 @@ def main(args):
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'\nNumber of trainable params: {n_parameters}')
 
+    ## Calculate GFLOPS
+    # num_features = len(feature_metadata['continuous']) + len(feature_metadata['categorical'])
+    # dummy_input = torch.ones(2, num_features).to('cuda').long() # change 2nd axis to the number of features
+    # model.eval()
+    # flops = FlopCountAnalysis(model.to('cuda'), dummy_input)
+    # print(f"Total Flops: {flops.total() / 2}")
+    # model.train()
+
     if args.optim.optimizer == 'rmsprop':
         optimizer = torch.optim.RMSprop(model.parameters(), lr=args.optim.lr, momentum=0.9, weight_decay=1e-3)
     elif args.optim.optimizer == 'adam':
@@ -103,13 +110,15 @@ def main(args):
         raise ValueError(f"Unsupported optimzer '{args.optim.loss}'. Supported optimizer algorithms: 'adam', 'rmsprop', 'adamw'.")
     
     if args.optim.loss == 'bce':
-        if args.optim.use_pos_weight:
-            pos_weight = torch.tensor([args.optim.pos_weight], dtype=torch.float32, device=device)
+        if args.optim.bce.use_pos_weight:
+            pos_weight = torch.tensor([args.optim.bce.pos_weight], dtype=torch.float32, device=device)
             criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         else:
             criterion = torch.nn.BCEWithLogitsLoss()
     elif args.optim.loss == 'focal':
         criterion = FocalLoss(alpha=args.optim.focal.alpha)
+    elif args.optim.loss=="ce":
+        criterion=torch.nn.CrossEntropyLoss()
     else:
         raise ValueError(f"Unsupported loss function '{args.optim.loss}'. Supported loss functions: 'focal', 'bce'.")
     print(f"Criterion: {criterion}")
@@ -127,22 +136,23 @@ def main(args):
     if args.eval:
         test_stats, cm = evaluate(dataloader_val, model, criterion, device, return_cm=True, features=feature_metadata)
         print(f"Accuracy of the network on the {len(test_dataset)} test samples: {test_stats['acc']:.1f}%")
-        print(f"Balanced Accuracy of the network on the {len(test_dataset)} test samples: {test_stats['bal_acc']:.1f}%")
-        print(f"F1-Score (binary): {test_stats['f1_b']:.3f}")
+        print(f"F1-Score (binary/macro): {test_stats['f1']:.3f}")
         print(f"F1-Score (weighted): {test_stats['f1_w']:.3f}")
-        print(f"Recall on positive class (Sensitivity): {test_stats['rec_pos']:.3f}")
-        print(f"Recall on negative class (Specificity): {test_stats['rec_neg']:.3f}")
-        print(f"Precision on positive class: {test_stats['prec_pos']:.3f}")
-        print(f"Precision on negative class: {test_stats['prec_neg']:.3f}")
-        for i in range(len(cm)):
-            print(f'Confustion matrix for label {i+1}: {cm[i]}')
+        print(f'Confustion matrix: {cm}')
+        if args.data.num_labels == 1:
+            print(f"Balanced Accuracy of the network on the {len(test_dataset)} test samples: {test_stats['bal_acc']:.1f}%")
+            print(f"Recall on positive class (Sensitivity): {test_stats['rec_pos']:.3f}")
+            print(f"Recall on negative class (Specificity): {test_stats['rec_neg']:.3f}")
+            print(f"Precision on positive class: {test_stats['prec_pos']:.3f}")
+            print(f"Precision on negative class: {test_stats['prec_neg']:.3f}")
         exit(0)
     
     print(f"Start training for {args.optim.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
     max_f1 = 0.0
-    max_balanced_accuracy = 0.0
+    if args.data.num_labels==1:
+        max_balanced_accuracy = 0.0
     for epoch in range(args.optim.epochs):
         train_stats = train_one_epoch(
             model, criterion, dataloader_train,
@@ -165,19 +175,19 @@ def main(args):
 
         test_stats, cm = evaluate(dataloader_val, model, criterion, device, return_cm=True, features=feature_metadata)
         print(f"Accuracy of the network on the {len(test_dataset)} test samples: {test_stats['acc']:.1f}%")
-        for i in range(len(cm)):
-            print(f'Confustion matrix for label {i+1}: {cm[i]}')
+        print(f'Confustion matrix: {cm}')
         max_accuracy = max(max_accuracy, test_stats["acc"])
-        max_f1 = max(max_f1, test_stats["f1_b"])
-        max_balanced_accuracy = max(max_balanced_accuracy, test_stats["bal_acc"])
+        max_f1 = max(max_f1, test_stats["f1"])
+        if args.data.num_labels==1:
+            max_balanced_accuracy = max(max_balanced_accuracy, test_stats["bal_acc"])
         print(f'Max accuracy: {max_accuracy:.2f}%, Max F1-Score: {max_f1:.3f}')
         
         if args.optim.lr_scheduler == 'rop':
-            lr_scheduler.step(test_stats['bal_acc'])
+            lr_scheduler.step(test_stats['f1']) # TODO: choose a custom metric to monitor
         elif args.optim.lr_scheduler == 'ca':
             lr_scheduler.step()
 
-        if (max_f1 == test_stats["f1_b"]):
+        if (max_f1 == test_stats["f1"]):
             output_dir = Path(args.output_dir)
             checkpoint_paths = [output_dir / ('ckpt_best.pth')]
             for checkpoint_path in checkpoint_paths:
