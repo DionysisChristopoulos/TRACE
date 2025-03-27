@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from utils.models import nnMLP
 from utils.losses import FocalLoss
 from utils.config import setup
+from fvcore.nn import FlopCountAnalysis, flop_count_table
 
 def get_args_parser():
     parser = argparse.ArgumentParser()
@@ -51,6 +52,8 @@ def eval_train(model, dataloader_train, dataloader_val, optimizer, criterion, nu
 
                 outputs = model(inputs)
                 
+                if model.num_labels >= 2:
+                    targets = targets.squeeze().long()
                 loss = criterion(outputs, targets)
                 loss.backward()
 
@@ -70,8 +73,12 @@ def eval_train(model, dataloader_train, dataloader_val, optimizer, criterion, nu
                     val_inputs, val_targets = val_data
                     
                     val_logits = model(val_inputs)
-                    probas = F.sigmoid(val_logits)
-                    preds = (probas > 0.5).float()
+                    if model.num_labels >= 2:
+                        probas = F.softmax(val_logits, dim=1)
+                        preds = torch.argmax(probas, dim=1)
+                    else:
+                        probas = F.sigmoid(val_logits)
+                        preds = (probas > 0.5).float()
 
                     total_preds.append(preds)
                     total_targets.append(val_targets)
@@ -79,13 +86,13 @@ def eval_train(model, dataloader_train, dataloader_val, optimizer, criterion, nu
             total_preds = torch.cat(total_preds, dim=0)
             total_targets = torch.cat(total_targets, dim=0)
             accuracy = (accuracy_score(total_targets.cpu(), total_preds.cpu()) * 100)
-            if model.num_labels == 2:
-                avg = 'weighted'
+            if model.num_labels >= 2:
+                avg = 'macro'
             else:
                 avg = 'binary'
             f1 = f1_score(total_targets.cpu(), total_preds.cpu(), average=avg)
             precision = precision_score(total_targets.cpu(), total_preds.cpu(), average=avg)
-            conf_matrix = confusion_matrix(total_targets[:,0].cpu(), total_preds[:,0].cpu()) # confusion matrix only for melanoma prediction
+            conf_matrix = confusion_matrix(total_targets[:,0].cpu(), total_preds.cpu())
             print(conf_matrix)
 
             if f1 >= best_f1:
@@ -138,31 +145,34 @@ def main(args):
         model.eval()
 
         X_test, y_test = X[test_indices], y[test_indices]
-        test_probas = F.sigmoid(model(X_test))
-        test_preds = (test_probas > 0.5).float()
-        test_acc = accuracy_score(y_test.cpu(), test_preds.cpu())
-        test_conf_matrix_melanoma = confusion_matrix(y_test[:, 0].cpu(), test_preds[:, 0].cpu())
-        if num_labels == 2:
-            avg = 'samples'
+        if num_labels >= 2:
+            test_logits=(model(X_test))
+            test_probas = F.softmax(test_logits, dim=1)
+            test_preds = torch.argmax(test_probas, dim=1)
         else:
-            avg = 'binary'
-        f1_binary = f1_score(y_test.cpu(), test_preds.cpu(), average=avg)
+            test_probas = F.sigmoid(model(X_test))
+            test_preds = (test_probas > 0.5).float()
+        test_acc = accuracy_score(y_test.cpu(), test_preds.cpu())
+        test_conf_matrix = confusion_matrix(y_test[:, 0].cpu(), test_preds.cpu())
+        
+        avg = 'macro' if num_labels >= 2 else 'binary'
+        
+        f1 = f1_score(y_test.cpu(), test_preds.cpu(), average=avg)
         f1_weighted = f1_score(y_test.cpu(), test_preds.cpu(), average='weighted')
-        recall_positive = recall_score(y_test.cpu(), test_preds.cpu(), pos_label=1, average=avg)
-        recall_negative = recall_score(y_test.cpu(), test_preds.cpu(), pos_label=0, average=avg)
-        precision_positive = precision_score(y_test.cpu(), test_preds.cpu(), pos_label=1, average=avg)
-        precision_negative = precision_score(y_test.cpu(), test_preds.cpu(), pos_label=0, average=avg)
+        
         print(f'Overall Test Accuracy: {(test_acc*100.):.2f}')
-        print(f'F1-Score (binary): {(f1_binary):.4f}')
+        print(f'F1-Score (binary/macro): {(f1):.4f}')
         print(f'F1-Score (weighted): {(f1_weighted):.4f}')
-        print(f'Recall on positive class (Sensitivity): {recall_positive:.4f}')
-        print(f'Recall on negative class (Specificity): {recall_negative:.4f}')
-        print(f'Precision on positive class: {precision_positive:.4f}')
-        print(f'Precision on negative class: {precision_negative:.4f}')
-        print(f'Confusion Matrix (Label 1): {test_conf_matrix_melanoma}')
-        if num_labels == 2:
-            test_conf_matrix_others = confusion_matrix(y_test[:,1].cpu(), test_preds[:,1].cpu())
-            print(f'Confusion Matrix (Label 2): {test_conf_matrix_others}')
+        if num_labels == 1:
+            recall_positive = recall_score(y_test.cpu(), test_preds.cpu(), pos_label=1, average=avg)
+            recall_negative = recall_score(y_test.cpu(), test_preds.cpu(), pos_label=0, average=avg)
+            precision_positive = precision_score(y_test.cpu(), test_preds.cpu(), pos_label=1, average=avg)
+            precision_negative = precision_score(y_test.cpu(), test_preds.cpu(), pos_label=0, average=avg)
+            print(f'Recall on positive class (Sensitivity): {recall_positive:.4f}')
+            print(f'Recall on negative class (Specificity): {recall_negative:.4f}')
+            print(f'Precision on positive class: {precision_positive:.4f}')
+            print(f'Precision on negative class: {precision_negative:.4f}')
+        print(f'Confusion Matrix: {test_conf_matrix}')
         exit(0)
 
     # Implement KFold training and validation
@@ -206,7 +216,16 @@ def main(args):
                 criterion = torch.nn.BCEWithLogitsLoss()
         elif args.optim.loss == 'focal':
             criterion = FocalLoss(alpha=args.optim.focal.alpha)
+        elif args.optim.loss=="ce":
+            criterion=torch.nn.CrossEntropyLoss()
         print(f"Criterion: {criterion}")
+
+        ## Calculate GFLOPS
+        # dummy_input = torch.ones(2, 24).to('cuda').float()
+        # mlp.eval()
+        # flops = FlopCountAnalysis(mlp.to('cuda'), dummy_input)
+        # print(f"Total Flops: {flops.total() / 2}")
+        # mlp.train()
 
         model, accuracy, epoch = eval_train(model=mlp, 
                                             dataloader_train=dataloader_train, 
@@ -231,22 +250,23 @@ def main(args):
     # for name, param in best_model.named_parameters():
     #             print(f"Layer: {name} | Size: {param.size()} | Values : {param.data} \n")
     
-    print(best_split)    
+    # print(best_split)
     print(f'Training process has finished. Max F1 score found: {max_accuracy:.4f} in epoch {best_epoch}')
 
     # Test with the best model
     best_model.eval()
     X_test, y_test = X[best_split['val']], y[best_split['val']]
-    test_probas = F.sigmoid(best_model(X_test))
-    test_preds = (test_probas > 0.5).float()
+    if num_labels>2:
+        test_logits=(best_model(X_test))
+        test_probas = F.softmax(test_logits, dim=1)
+        test_preds = torch.argmax(test_probas, dim=1)
+    else:
+        test_probas = F.sigmoid(best_model(X_test))
+        test_preds = (test_probas > 0.5).float()
     test_acc = accuracy_score(y_test.cpu(), test_preds.cpu())
-    test_conf_matrix_melanoma = confusion_matrix(y_test[:,0].cpu(), test_preds[:,0].cpu())
-    if num_labels == 2:
-        test_conf_matrix_others = confusion_matrix(y_test[:,1].cpu(), test_preds[:,1].cpu())
+    test_conf_matrix = confusion_matrix(y_test[:,0].cpu(), test_preds.cpu())
 
-    print(f'\nOverall Test Accuracy: {(test_acc*100.):.2f}\nConfusion Matrix (Label 1): {test_conf_matrix_melanoma}')
-    if num_labels == 2:
-        print(f'Confusion Matrix (Label 2): {test_conf_matrix_others}')
+    print(f'\nOverall Test Accuracy: {(test_acc*100.):.2f}\nConfusion Matrix: {test_conf_matrix}')
 
 if __name__ == '__main__':
     args = get_args_parser()
