@@ -1,7 +1,7 @@
 data:
   dataset_name: "cdc22"
-  data_dir: "/mnt/datalv/dionchr/clinical_ds/CDC/processed/heart_with_nans_final_new.csv"
-  metadata_dir: "/mnt/datalv/dionchr/clinical_ds/CDC/processed/heart_with_nans_final_new_metadata.json"
+  data_dir: "/data/brfss22/heart_with_nans_final_new.csv"
+  metadata_dir: "/data/brfss22/heart_with_nans_final_new_metadata.json"
   num_labels: 1
   target_label: "HeartDiseaseorAttack"
   encoding: false
@@ -28,7 +28,7 @@ optim:
 
 model:
   hidden_size: 128
-  tran_layers: 2
+  tran_layers: 1
   heads: 2
   mlp_ratio: 4
   num_mode: "mlp"
@@ -39,11 +39,22 @@ model:
   checkbox_mode: "sum"
 
 oversampling: false
-oversampling_mode: "smote"
+oversampling_mode: "ctgan"
 smote:
-  oversampling_strategy: "auto"
+  oversampling_strategy: 0.33
   k_neighbors: 5
   undersampling: false
   undersampling_strategy: 0.5
+smotenc:
+  oversampling_strategy: 0.25
+  k_neighbors: 1
+  undersampling: false
+  undersampling_strategy: 0.2
 ctgan:
-  epochs: 10
+  epochs: 5000
+  batch_size: 1024
+  generator_lr: 1e-4
+  discriminator_lr: 1e-4
+  generator_dim: [256,256,256]
+  discriminator_dim: [256,256,256]
+  pac: 10

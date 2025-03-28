@@ -1,7 +1,7 @@
 data:
   dataset_name: "cdc22"
-  data_dir: "/mnt/datalv/dionchr/clinical_ds/CDC/processed/heart_with_nans_final_new.csv"
-  metadata_dir: "/mnt/datalv/dionchr/clinical_ds/CDC/processed/heart_with_nans_final_new_metadata.json"
+  data_dir: "/data/brfss22/heart_with_nans_final_new.csv"
+  metadata_dir: "/data/brfss22/heart_with_nans_final_new_metadata.json"
   num_labels: 1
   target_label: "HeartDiseaseorAttack"
   encoding: true
@@ -15,7 +15,7 @@ train:
 sampler: "custom"
 
 optim:
-  epochs: 2
+  epochs: 100
   lr: 0.0002
   lr_scheduler: "rop"
   optimizer: "rmsprop"
