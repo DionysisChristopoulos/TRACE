@@ -3,7 +3,7 @@
   <img src="images/RSLab_logo_LRn.jpg" alt="Affiliation Logo" width="35%">
 </p>
 
-> :page_with_curl: Source code accompanying the paper [TRACE: Transformer-based Risk Assessment for Clinical Evaluation](https://arxiv.org/abs/2411.08701)
+> :page_with_curl: Source code accompanying the paper [TRACE: Transformer-based Risk Assessment for Clinical Evaluation](https://doi.org/10.1109/ACCESS.2025.3577973)
 >
 > :black_nib: Authors: Dionysis Christopoulos, Sotiris Spanos, Valsamis Ntouskos, Konstantinos Karantzalos
 >
@@ -11,6 +11,7 @@
 
 ## :loudspeaker: News
 
+- **[2025.06.09]** TRACE is now published in [IEEE Access](https://doi.org/10.1109/ACCESS.2025.3577973) :tada:
 - **[2024.12.04]** Code for the paper is now publicly available!
 - **[2024.11.14]** Initial manuscript version uploaded on [arXiv](https://arxiv.org/abs/2411.08701)
 
