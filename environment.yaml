@@ -1,4 +1,4 @@
-name: itobos
+name: trace
 channels:
   - defaults
   - conda-forge
@@ -117,4 +117,3 @@ dependencies:
     - urllib3==2.2.1
     - wheel==0.43.0
     - zipp==3.16.2
-prefix: trace

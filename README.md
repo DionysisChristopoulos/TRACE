@@ -64,19 +64,17 @@ All datasets must be converted into a numeric CSV with the following rules:
 Each preprocessed CSV must be accompanied by a metadata JSON file.
 This will define which columns are continuous and which are categorical, along with the number of discrete categories for each categorical variable.
 
-Example template:
+*Example template*:
 ```JSON
 {
     "continuous": [
         "Numerical Feature 1",
         "Numerical Feature 2",
-        ...
     ],
     "categorical": {
-        "Categorical Feature 1": num_categories_1,
-        "Categorical Feature 2": num_categories_2,
-        "Categorical Feature 3": num_categories_3,
-        ...
+        "Categorical Feature 1": "num_categories_1",
+        "Categorical Feature 2": "num_categories_2",
+        "Categorical Feature 3": "num_categories_3",
     }
 }
 ```
