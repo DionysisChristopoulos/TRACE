@@ -1,7 +1,7 @@
 data:
   dataset_name: "cdc14_r"
   data_dir: "/data/brfss14/type2_diabetes_brfss2014_reproduction.csv"
-  metadata_dir: "/data/brfss14/processed/type2_diabetes_brfss2014_reproduction_metadata.json"
+  metadata_dir: "metadata/brfss14_metadata.json"
   num_labels: 1
   target_label: "DIABETE3"
   encoding: false

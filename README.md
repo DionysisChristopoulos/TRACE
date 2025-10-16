@@ -42,6 +42,47 @@ Alternatively:
 pip install -r requirements.txt
 ```
 
+## :open_file_folder: Data
+
+### Tabular data preprocessing
+All datasets must be converted into a numeric CSV with the following rules:
+- **Missing** values → replaced with `0`
+- **Categorical** features → encoded with integers starting from `1`. Example:
+
+<p align="center">
+
+| Before | After |
+|:---:|:-------:|
+| 'Male' | 1 |
+| 'Female' | 2 |
+
+</p>
+
+- **Numerical (continuous)** features → remain unchanged
+
+### Metadata Preparation
+Each preprocessed CSV must be accompanied by a metadata JSON file.
+This will define which columns are continuous and which are categorical, along with the number of discrete categories for each categorical variable.
+
+Example template:
+```JSON
+{
+    "continuous": [
+        "Numerical Feature 1",
+        "Numerical Feature 2",
+        ...
+    ],
+    "categorical": {
+        "Categorical Feature 1": num_categories_1,
+        "Categorical Feature 2": num_categories_2,
+        "Categorical Feature 3": num_categories_3,
+        ...
+    }
+}
+```
+>:exclamation:**NOTE:** The target column will be included in the preprocessed CSV file but not in the metadata JSON. The name of the target label column should be specified in the configuration file under the `target_label` key.
+
+
 ## :fire: Training
 
 Run the following command to end-to-end train the model:

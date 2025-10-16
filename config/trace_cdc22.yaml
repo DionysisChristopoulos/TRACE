@@ -1,7 +1,7 @@
 data:
   dataset_name: "cdc22"
   data_dir: "/data/brfss22/heart_with_nans_final_new.csv"
-  metadata_dir: "/data/brfss22/heart_with_nans_final_new_metadata.json"
+  metadata_dir: "metadata/brfss22_metadata.json"
   num_labels: 1
   target_label: "HeartDiseaseorAttack"
   encoding: false

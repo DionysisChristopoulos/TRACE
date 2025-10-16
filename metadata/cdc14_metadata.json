@@ -1,0 +1,31 @@
+{
+    "continuous": [],
+    "categorical": {
+        "GENHLTH":5, 
+        "_AGEG5YR":6, 
+        "_BMI5CAT":4, 
+        "CHECKUP1":5, 
+        "INCOME2":8, 
+        "_RACE":8,
+        "MSCODE":4, 
+        "FLUSHOT6":2, 
+        "EMPLOY1":8, 
+        "SEX":2,
+        "MARITAL":6, 
+        "_EDUCAG":4, 
+        "CVDCRHD4":2, 
+        "HLTHCVR1":8, 
+        "CHCKIDNY":2,
+        "USEEQUIP":2, 
+        "_TOTINDA":2, 
+        "ADDEPEV2":2, 
+        "RENTHOM1":3, 
+        "EXERANY2":2,
+        "BLIND":2, 
+        "DECIDE":2, 
+        "HLTHPLN1":2, 
+        "_SMOKER3":4,
+        "MENTHLTH":3,
+        "SLEPTIM1":3  
+    }
+}
